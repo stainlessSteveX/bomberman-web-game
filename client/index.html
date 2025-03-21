@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bomberman WebSocket Test</title>
+</head>
+<body>
+<h1>Bomberman WebSocket Test</h1>
+<button onclick="sendMessage()">Send Message</button>
+
+<script src="main.js"></script>
+<script>
+    function sendMessage() {
+        if (socket.readyState === WebSocket.OPEN) {
+            socket.send("Player action: MOVE UP");
+        } else {
+            console.log("⚠️ WebSocket is not open yet.");
+        }
+    }
+</script>
+</body>
+</html>
