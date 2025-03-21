@@ -84,14 +84,16 @@ function animatePlayerMovement(playerId, oldX, oldY, newX, newY) {
 }
 
 
-// Function to remove a player
 function removePlayer(playerId) {
-    if (players[playerId]) {
+    if (players[playerId]) { // ✅ Check if player exists before removing
         players[playerId].classList.remove("player");
         players[playerId].textContent = "";
         delete players[playerId];
+    } else {
+        console.warn(`⚠️ Tried to remove player ${playerId}, but they don't exist.`);
     }
 }
+
 
 // Send player action
 function sendPlayerAction(action) {

@@ -126,7 +126,7 @@ public class GameSocketHandler extends TextWebSocketHandler {
             // Check if player is in the explosion range
             if ((player.getX() == x && Math.abs(player.getY() - y) <= range) ||
                     (player.getY() == y && Math.abs(player.getX() - x) <= range)) {
-                affectedPlayers.add(player.getId());
+                affectedPlayers.add("\"" + player.getId() + "\""); // ✅ Add quotes to player ID
             }
         }
 
@@ -140,16 +140,17 @@ public class GameSocketHandler extends TextWebSocketHandler {
             explosionMessage += "{ \"x\": " + x + ", \"y\": " + (y - i) + " }, ";
         }
 
-        explosionMessage = explosionMessage.substring(0, explosionMessage.length() - 2);
+        explosionMessage = explosionMessage.substring(0, explosionMessage.length() - 2); // Remove last comma
         explosionMessage += "], \"playersHit\": " + affectedPlayers + " }";
 
         broadcastRaw(explosionMessage);
 
         // Remove affected players
         for (String playerId : affectedPlayers) {
-            removePlayerById(playerId);
+            removePlayerById(playerId.replace("\"", "")); // ✅ Remove quotes when calling method
         }
     }
+
 
     private void removePlayerById(String playerId) {
         for (WebSocketSession session : players.keySet()) {
