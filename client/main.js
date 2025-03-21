@@ -86,11 +86,13 @@ function animatePlayerMovement(playerId, oldX, oldY, newX, newY) {
 
 function removePlayer(playerId) {
     if (players[playerId]) { // ✅ Check if player exists before removing
-        players[playerId].classList.remove("player");
-        players[playerId].textContent = "";
-        delete players[playerId];
+        if (players[playerId].classList) { // ✅ Extra check to avoid undefined errors
+            players[playerId].classList.remove("player");
+            players[playerId].textContent = "";
+        }
+        delete players[playerId]; // ✅ Remove player from tracking
     } else {
-        console.warn(`⚠️ Tried to remove player ${playerId}, but they don't exist.`);
+        console.warn(`⚠️ Tried to remove player ${playerId}, but they were already removed.`);
     }
 }
 
