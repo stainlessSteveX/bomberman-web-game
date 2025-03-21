@@ -2,6 +2,8 @@ package com.bomberman;
 
 import org.springframework.web.socket.*;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
+
+import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -9,12 +11,44 @@ public class GameSocketHandler extends TextWebSocketHandler {
 
     private final Map<WebSocketSession, Player> players = new ConcurrentHashMap<>();
 
+    private void broadcast(String event, Player player) {
+        String message = "{ \"event\": \"" + event + "\", \"id\": \"" + player.getId() + "\", \"x\": " + player.getX() + ", \"y\": " + player.getY() + " }";
+
+        for (WebSocketSession s : players.keySet()) {
+            if (s.isOpen()) {
+                try {
+                    s.sendMessage(new TextMessage(message));
+                } catch (IOException e) {
+                    System.err.println("⚠️ Error sending WebSocket message: " + e.getMessage());
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+
     @Override
-    public void afterConnectionEstablished(WebSocketSession session) throws Exception {
+    public void afterConnectionEstablished(WebSocketSession session) {
+        if (!players.containsKey(session)) { // 🛠️ Ensure the player isn’t recreated!
+            Player player = new Player();
+            players.put(session, player);
+            System.out.println("🔗 New player joined: " + player.getId() + " at (" + player.getX() + ", " + player.getY() + ")");
+            broadcast("NEW_PLAYER", player);
+        }
+    }
+
+    /*
+    @Override
+    public void afterConnectionEstablished(WebSocketSession session) {
         Player player = new Player();
         players.put(session, player);
-        System.out.println("🔗 New player connected: " + player.getId());
+
+        System.out.println("🔗 New player joined: " + player.getId() + " at (" + player.getX() + ", " + player.getY() + ")");
+
+        // Broadcast new player to everyone
+        broadcast("NEW_PLAYER", player);
     }
+    */
 
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
@@ -22,16 +56,15 @@ public class GameSocketHandler extends TextWebSocketHandler {
         System.out.println("📨 Received: " + payload);
 
         Player player = players.get(session);
-        if (player != null) {
-            player.move(payload);
-            String response = "📍 Player " + player.getId() + " moved to (" + player.getX() + ", " + player.getY() + ")";
 
-            // 🔄 Broadcast this update to ALL players
-            for (WebSocketSession s : players.keySet()) {
-                if (s.isOpen()) {
-                    s.sendMessage(new TextMessage(response));
-                }
-            }
+        if (player != null) {
+            System.out.println("🔍 Before move: Player " + player.getId() + " at (" + player.getX() + ", " + player.getY() + ")");
+
+            player.move(payload);
+
+            System.out.println("✅ After move: Player " + player.getId() + " now at (" + player.getX() + ", " + player.getY() + ")");
+
+            broadcast("MOVE", player);
         }
     }
 
@@ -41,6 +74,10 @@ public class GameSocketHandler extends TextWebSocketHandler {
         Player player = players.remove(session);
         if (player != null) {
             System.out.println("❌ Player disconnected: " + player.getId());
+
+            // Broadcast player removal to everyone
+            broadcast("REMOVE_PLAYER", player);
         }
     }
+
 }
