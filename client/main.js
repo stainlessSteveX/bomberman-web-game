@@ -2,6 +2,46 @@ const socket = new WebSocket("ws://localhost:8080/ws");
 
 const gameBoard = document.getElementById("gameBoard");
 
+// Wall Layout (1 = solid wall 🚧, 2 = breakable wall 🧱)
+const mapLayout = [
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+    [1, 0, 2, 0, 0, 0, 2, 0, 0, 1],
+    [1, 0, 1, 0, 1, 1, 0, 1, 0, 1],
+    [1, 2, 0, 0, 2, 0, 0, 2, 0, 1],
+    [1, 0, 1, 2, 1, 1, 2, 1, 0, 1],
+    [1, 0, 0, 0, 0, 0, 0, 0, 2, 1],
+    [1, 1, 2, 1, 1, 1, 2, 1, 1, 1],
+    [1, 0, 0, 2, 0, 0, 2, 0, 0, 1],
+    [1, 0, 1, 0, 1, 1, 0, 1, 0, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+];
+
+// Render the game grid with walls
+function createGameBoard() {
+    gameBoard.innerHTML = "";
+
+    for (let i = 0; i < 10; i++) {
+        for (let j = 0; j < 10; j++) {
+            let cell = document.createElement("div");
+            cell.classList.add("cell");
+            cell.dataset.x = j;
+            cell.dataset.y = i;
+
+            if (mapLayout[i][j] === 1) {
+                cell.classList.add("wall-solid");
+                cell.textContent = "🚧"; // Solid Wall
+            } else if (mapLayout[i][j] === 2) {
+                cell.classList.add("wall-breakable");
+                cell.textContent = "🧱"; // Breakable Wall
+            }
+
+            gameBoard.appendChild(cell);
+        }
+    }
+}
+
+createGameBoard();
+
 // Create a 10x10 game grid
 for (let i = 0; i < 10; i++) {
     for (let j = 0; j < 10; j++) {

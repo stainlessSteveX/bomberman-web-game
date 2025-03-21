@@ -118,37 +118,59 @@ public class GameSocketHandler extends TextWebSocketHandler {
 
         int range = 3;
         List<String> affectedPlayers = new ArrayList<>();
+        List<int[]> destroyedWalls = new ArrayList<>();
 
         for (WebSocketSession session : players.keySet()) {
             Player player = players.get(session);
             if (player == null) continue;
 
-            // Check if player is in the explosion range
             if ((player.getX() == x && Math.abs(player.getY() - y) <= range) ||
                     (player.getY() == y && Math.abs(player.getX() - x) <= range)) {
-                affectedPlayers.add("\"" + player.getId() + "\""); // ✅ Add quotes to player ID
+                affectedPlayers.add("\"" + player.getId() + "\"");
             }
         }
 
-        // Send explosion data
         String explosionMessage = "{ \"event\": \"EXPLOSION\", \"tiles\": [";
 
         for (int i = 1; i <= range; i++) {
+            if (isWall(x + i, y) == 1) break; // Stop at solid wall
+            if (isWall(x + i, y) == 2) { destroyedWalls.add(new int[]{x + i, y}); break; }
             explosionMessage += "{ \"x\": " + (x + i) + ", \"y\": " + y + " }, ";
+
+            if (isWall(x - i, y) == 1) break;
+            if (isWall(x - i, y) == 2) { destroyedWalls.add(new int[]{x - i, y}); break; }
             explosionMessage += "{ \"x\": " + (x - i) + ", \"y\": " + y + " }, ";
+
+            if (isWall(x, y + i) == 1) break;
+            if (isWall(x, y + i) == 2) { destroyedWalls.add(new int[]{x, y + i}); break; }
             explosionMessage += "{ \"x\": " + x + ", \"y\": " + (y + i) + " }, ";
+
+            if (isWall(x, y - i) == 1) break;
+            if (isWall(x, y - i) == 2) { destroyedWalls.add(new int[]{x, y - i}); break; }
             explosionMessage += "{ \"x\": " + x + ", \"y\": " + (y - i) + " }, ";
         }
 
-        explosionMessage = explosionMessage.substring(0, explosionMessage.length() - 2); // Remove last comma
-        explosionMessage += "], \"playersHit\": " + affectedPlayers + " }";
+        explosionMessage = explosionMessage.substring(0, explosionMessage.length() - 2);
+        explosionMessage += "], \"playersHit\": " + affectedPlayers + ", \"destroyedWalls\": " + destroyedWalls + " }";
 
         broadcastRaw(explosionMessage);
+    }
 
-        // Remove affected players
-        for (String playerId : affectedPlayers) {
-            removePlayerById(playerId.replace("\"", "")); // ✅ Remove quotes when calling method
-        }
+    // Function to check if a wall exists at given coordinates
+    private int isWall(int x, int y) {
+        int[][] mapLayout = {
+                {1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+                {1, 0, 2, 0, 0, 0, 2, 0, 0, 1},
+                {1, 0, 1, 0, 1, 1, 0, 1, 0, 1},
+                {1, 2, 0, 0, 2, 0, 0, 2, 0, 1},
+                {1, 0, 1, 2, 1, 1, 2, 1, 0, 1},
+                {1, 0, 0, 0, 0, 0, 0, 0, 2, 1},
+                {1, 1, 2, 1, 1, 1, 2, 1, 1, 1},
+                {1, 0, 0, 2, 0, 0, 2, 0, 0, 1},
+                {1, 0, 1, 0, 1, 1, 0, 1, 0, 1},
+                {1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
+        };
+        return mapLayout[y][x]; // 1 = solid wall, 2 = breakable wall, 0 = empty space
     }
 
 
