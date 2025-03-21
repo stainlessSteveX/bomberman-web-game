@@ -2,12 +2,18 @@ package com.bomberman;
 
 import org.springframework.web.socket.*;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class GameSocketHandler extends TextWebSocketHandler {
 
+    private final Map<WebSocketSession, Player> players = new ConcurrentHashMap<>();
+
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
-        System.out.println("🔗 New player connected: " + session.getId());
+        Player player = new Player();
+        players.put(session, player);
+        System.out.println("🔗 New player connected: " + player.getId());
     }
 
     @Override
@@ -15,20 +21,20 @@ public class GameSocketHandler extends TextWebSocketHandler {
         String payload = message.getPayload();
         System.out.println("📨 Received: " + payload);
 
-        String response = switch (payload) {
-            case "MOVE UP" -> "🡹 Player moved up!";
-            case "MOVE DOWN" -> "🡻 Player moved down!";
-            case "MOVE LEFT" -> "🡸 Player moved left!";
-            case "MOVE RIGHT" -> "🡺 Player moved right!";
-            default -> "🤔 Unknown action!";
-        };
-
-        session.sendMessage(new TextMessage(response));
+        Player player = players.get(session);
+        if (player != null) {
+            player.move(payload);
+            String response = "📍 Player " + player.getId() + " moved to (" + player.getX() + ", " + player.getY() + ")";
+            session.sendMessage(new TextMessage(response));
+        }
     }
 
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
-        System.out.println("❌ Player disconnected: " + session.getId());
+        Player player = players.remove(session);
+        if (player != null) {
+            System.out.println("❌ Player disconnected: " + player.getId());
+        }
     }
 }
