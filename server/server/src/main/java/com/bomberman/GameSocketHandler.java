@@ -10,6 +10,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.Timer;
 import java.util.TimerTask;
 
+import java.util.List;
+import java.util.ArrayList;
+
+
 public class GameSocketHandler extends TextWebSocketHandler {
 
     private final Map<WebSocketSession, Player> players = new ConcurrentHashMap<>();
@@ -30,6 +34,35 @@ public class GameSocketHandler extends TextWebSocketHandler {
         }
     }
 
+    private void broadcastRaw(String message) {
+        for (WebSocketSession s : players.keySet()) {
+            if (s.isOpen()) {
+                try {
+                    s.sendMessage(new TextMessage(message));
+                } catch (IOException e) {
+                    System.err.println("⚠️ Error sending WebSocket message: " + e.getMessage());
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+
+    public GameSocketHandler() {
+        // Start the game loop
+        gameLoopTimer.scheduleAtFixedRate(new TimerTask() {
+            @Override
+            public void run() {
+                broadcastAllPlayerPositions();
+            }
+        }, 0, 33); // Runs every 33ms (~30 updates per second)
+    }
+
+    private void broadcastAllPlayerPositions() {
+        for (Player player : players.values()) {
+            broadcast("MOVE", player);
+        }
+    }
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
@@ -57,18 +90,14 @@ public class GameSocketHandler extends TextWebSocketHandler {
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
         String payload = message.getPayload();
-        System.out.println("📨 Received: " + payload);
-
         Player player = players.get(session);
 
         if (player != null) {
-            System.out.println("🔍 Before move: Player " + player.getId() + " at (" + player.getX() + ", " + player.getY() + ")");
-
-            player.move(payload);
-
-            System.out.println("✅ After move: Player " + player.getId() + " now at (" + player.getX() + ", " + player.getY() + ")");
-
-            broadcast("MOVE", player);
+            if ("DROP_BOMB".equals(payload)) {
+                placeBomb(player.getX(), player.getY());
+            } else {
+                player.move(payload);
+            }
         }
     }
 
@@ -83,5 +112,72 @@ public class GameSocketHandler extends TextWebSocketHandler {
             broadcast("REMOVE_PLAYER", player);
         }
     }
+
+    private void explodeBomb(int x, int y) {
+        System.out.println("🔥 Bomb exploded at (" + x + ", " + y + ")");
+
+        int range = 3;
+        List<String> affectedPlayers = new ArrayList<>();
+
+        for (WebSocketSession session : players.keySet()) {
+            Player player = players.get(session);
+            if (player == null) continue;
+
+            // Check if player is in the explosion range
+            if ((player.getX() == x && Math.abs(player.getY() - y) <= range) ||
+                    (player.getY() == y && Math.abs(player.getX() - x) <= range)) {
+                affectedPlayers.add(player.getId());
+            }
+        }
+
+        // Send explosion data
+        String explosionMessage = "{ \"event\": \"EXPLOSION\", \"tiles\": [";
+
+        for (int i = 1; i <= range; i++) {
+            explosionMessage += "{ \"x\": " + (x + i) + ", \"y\": " + y + " }, ";
+            explosionMessage += "{ \"x\": " + (x - i) + ", \"y\": " + y + " }, ";
+            explosionMessage += "{ \"x\": " + x + ", \"y\": " + (y + i) + " }, ";
+            explosionMessage += "{ \"x\": " + x + ", \"y\": " + (y - i) + " }, ";
+        }
+
+        explosionMessage = explosionMessage.substring(0, explosionMessage.length() - 2);
+        explosionMessage += "], \"playersHit\": " + affectedPlayers + " }";
+
+        broadcastRaw(explosionMessage);
+
+        // Remove affected players
+        for (String playerId : affectedPlayers) {
+            removePlayerById(playerId);
+        }
+    }
+
+    private void removePlayerById(String playerId) {
+        for (WebSocketSession session : players.keySet()) {
+            Player player = players.get(session);
+            if (player != null && player.getId().equals(playerId)) {
+                players.remove(session);
+                broadcastRaw("{ \"event\": \"REMOVE_PLAYER\", \"id\": \"" + playerId + "\" }");
+                break;
+            }
+        }
+    }
+
+
+
+    private void placeBomb(int x, int y) {
+        System.out.println("💣 Bomb placed at (" + x + ", " + y + ")");
+
+        // Notify all players about the bomb
+        broadcastRaw("{ \"event\": \"BOMB_PLACED\", \"x\": " + x + ", \"y\": " + y + " }");
+
+        // Schedule explosion after 3 seconds
+        new Timer().schedule(new TimerTask() {
+            @Override
+            public void run() {
+                explodeBomb(x, y);
+            }
+        }, 3000);
+    }
+
 
 }

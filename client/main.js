@@ -38,21 +38,51 @@ socket.addEventListener("message", (event) => {
     }
 });
 
-// Function to update player position
+document.addEventListener("keydown", (event) => {
+    if (event.key === "b" || event.key === "B") {
+        sendPlayerAction("DROP_BOMB");
+    }
+});
+
+
 function updatePlayerPosition(playerId, x, y) {
-    // Remove old player position if it exists
-    if (players[playerId]) {
-        players[playerId].classList.remove("player");
+    if (!players[playerId]) {
+        players[playerId] = { x, y };
     }
 
-    // Find the correct grid cell
-    let cell = document.querySelector(`[data-x="${x}"][data-y="${y}"]`);
-    if (cell) {
-        cell.classList.add("player");
-        cell.textContent = "👾"; // Player icon
-        players[playerId] = cell;
-    }
+    const oldX = players[playerId].x;
+    const oldY = players[playerId].y;
+    players[playerId].x = x;
+    players[playerId].y = y;
+
+    animatePlayerMovement(playerId, oldX, oldY, x, y);
 }
+
+function animatePlayerMovement(playerId, oldX, oldY, newX, newY) {
+    let startTime = performance.now();
+    let duration = 100; // 100ms smooth transition
+
+    function animate() {
+        let now = performance.now();
+        let progress = Math.min(1, (now - startTime) / duration);
+
+        let interpolatedX = oldX + (newX - oldX) * progress;
+        let interpolatedY = oldY + (newY - oldY) * progress;
+
+        let cell = document.querySelector(`[data-x="${Math.round(interpolatedX)}"][data-y="${Math.round(interpolatedY)}"]`);
+        if (cell) {
+            cell.classList.add("player");
+            cell.textContent = "👾";
+        }
+
+        if (progress < 1) {
+            requestAnimationFrame(animate);
+        }
+    }
+
+    requestAnimationFrame(animate);
+}
+
 
 // Function to remove a player
 function removePlayer(playerId) {
@@ -70,4 +100,32 @@ function sendPlayerAction(action) {
     } else {
         console.log("⚠️ WebSocket is not open yet.");
     }
+}
+
+socket.addEventListener("message", (event) => {
+    let data = JSON.parse(event.data);
+
+    if (data.event === "BOMB_PLACED") {
+        placeBomb(data.x, data.y);
+    }
+    else if (data.event === "EXPLOSION") {
+        triggerExplosion(data.tiles);
+    }
+});
+
+function placeBomb(x, y) {
+    let cell = document.querySelector(`[data-x="${x}"][data-y="${y}"]`);
+    if (cell) {
+        cell.textContent = "💣";
+    }
+}
+
+function triggerExplosion(tiles) {
+    tiles.forEach(tile => {
+        let cell = document.querySelector(`[data-x="${tile.x}"][data-y="${tile.y}"]`);
+        if (cell) {
+            cell.textContent = "🔥";
+            setTimeout(() => { cell.textContent = ""; }, 500); // Remove explosion effect after 500ms
+        }
+    });
 }
