@@ -7,9 +7,13 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import java.util.Timer;
+import java.util.TimerTask;
+
 public class GameSocketHandler extends TextWebSocketHandler {
 
     private final Map<WebSocketSession, Player> players = new ConcurrentHashMap<>();
+    private final Timer gameLoopTimer = new Timer(true);
 
     private void broadcast(String event, Player player) {
         String message = "{ \"event\": \"" + event + "\", \"id\": \"" + player.getId() + "\", \"x\": " + player.getX() + ", \"y\": " + player.getY() + " }";
