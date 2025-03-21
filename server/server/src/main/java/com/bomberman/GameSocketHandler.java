@@ -25,7 +25,13 @@ public class GameSocketHandler extends TextWebSocketHandler {
         if (player != null) {
             player.move(payload);
             String response = "📍 Player " + player.getId() + " moved to (" + player.getX() + ", " + player.getY() + ")";
-            session.sendMessage(new TextMessage(response));
+
+            // 🔄 Broadcast this update to ALL players
+            for (WebSocketSession s : players.keySet()) {
+                if (s.isOpen()) {
+                    s.sendMessage(new TextMessage(response));
+                }
+            }
         }
     }
 
