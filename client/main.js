@@ -80,7 +80,14 @@ socket.addEventListener("message", (event) => {
 
 
 document.addEventListener("keydown", (event) => {
-    switch (event.key) {
+    const key = event.key;
+
+    // Prevent arrow key scrolling
+    if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(key)) {
+        event.preventDefault();
+    }
+
+    switch (key) {
         case "ArrowUp":
         case "w":
         case "W":
@@ -107,6 +114,7 @@ document.addEventListener("keydown", (event) => {
             break;
     }
 });
+
 
 function updatePlayerPosition(playerId, x, y) {
     // Clear old position
