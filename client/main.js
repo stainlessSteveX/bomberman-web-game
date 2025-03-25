@@ -78,12 +78,35 @@ socket.addEventListener("message", (event) => {
     }
 });
 
+
 document.addEventListener("keydown", (event) => {
-    if (event.key === "b" || event.key === "B") {
-        sendPlayerAction("DROP_BOMB");
+    switch (event.key) {
+        case "ArrowUp":
+        case "w":
+        case "W":
+            sendPlayerAction("MOVE UP");
+            break;
+        case "ArrowDown":
+        case "s":
+        case "S":
+            sendPlayerAction("MOVE DOWN");
+            break;
+        case "ArrowLeft":
+        case "a":
+        case "A":
+            sendPlayerAction("MOVE LEFT");
+            break;
+        case "ArrowRight":
+        case "d":
+        case "D":
+            sendPlayerAction("MOVE RIGHT");
+            break;
+        case "b":
+        case "B":
+            sendPlayerAction("DROP_BOMB");
+            break;
     }
 });
-
 
 function updatePlayerPosition(playerId, x, y) {
     // Clear old position

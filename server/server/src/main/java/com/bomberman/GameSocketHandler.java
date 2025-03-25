@@ -13,6 +13,8 @@ import java.util.TimerTask;
 import java.util.List;
 import java.util.ArrayList;
 
+import java.util.Random;
+
 
 public class GameSocketHandler extends TextWebSocketHandler {
 
@@ -67,7 +69,8 @@ public class GameSocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
         if (!players.containsKey(session)) { // 🛠️ Ensure the player isn’t recreated!
-            Player player = new Player();
+            int[] spawn = findEmptySpawnPosition();
+            Player player = new Player(spawn[0], spawn[1]);
             players.put(session, player);
             System.out.println("🔗 New player joined: " + player.getId() + " at (" + player.getX() + ", " + player.getY() + ")");
             broadcast("NEW_PLAYER", player);
@@ -96,7 +99,7 @@ public class GameSocketHandler extends TextWebSocketHandler {
             if ("DROP_BOMB".equals(payload)) {
                 placeBomb(player.getX(), player.getY());
             } else {
-                player.move(payload);
+                player.move(payload, mapLayout);
             }
         }
     }
@@ -111,6 +114,13 @@ public class GameSocketHandler extends TextWebSocketHandler {
             // Broadcast player removal to everyone
             broadcast("REMOVE_PLAYER", player);
         }
+    }
+
+    private int isWall(int x, int y) {
+        if (x < 0 || x >= mapLayout[0].length || y < 0 || y >= mapLayout.length) {
+            return 1; // Treat out-of-bounds as solid wall
+        }
+        return mapLayout[y][x]; // 1 = solid, 2 = breakable, 0 = empty
     }
 
     private void explodeBomb(int x, int y) {
@@ -129,6 +139,7 @@ public class GameSocketHandler extends TextWebSocketHandler {
                 affectedPlayers.add("\"" + player.getId() + "\"");
             }
         }
+
 
         String explosionMessage = "{ \"event\": \"EXPLOSION\", \"tiles\": [";
 
@@ -157,21 +168,35 @@ public class GameSocketHandler extends TextWebSocketHandler {
     }
 
     // Function to check if a wall exists at given coordinates
-    private int isWall(int x, int y) {
-        int[][] mapLayout = {
-                {1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-                {1, 0, 2, 0, 0, 0, 2, 0, 0, 1},
-                {1, 0, 1, 0, 1, 1, 0, 1, 0, 1},
-                {1, 2, 0, 0, 2, 0, 0, 2, 0, 1},
-                {1, 0, 1, 2, 1, 1, 2, 1, 0, 1},
-                {1, 0, 0, 0, 0, 0, 0, 0, 2, 1},
-                {1, 1, 2, 1, 1, 1, 2, 1, 1, 1},
-                {1, 0, 0, 2, 0, 0, 2, 0, 0, 1},
-                {1, 0, 1, 0, 1, 1, 0, 1, 0, 1},
-                {1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
-        };
-        return mapLayout[y][x]; // 1 = solid wall, 2 = breakable wall, 0 = empty space
+    private int[][] mapLayout = {
+            {1,1,1,1,1,1,1,1,1,1},
+            {1,0,2,0,0,0,2,0,0,1},
+            {1,0,1,0,1,1,0,1,0,1},
+            {1,2,0,0,2,0,0,2,0,1},
+            {1,0,1,2,1,1,2,1,0,1},
+            {1,0,0,0,0,0,0,0,2,1},
+            {1,1,2,1,1,1,2,1,1,1},
+            {1,0,0,2,0,0,2,0,0,1},
+            {1,0,1,0,1,1,0,1,0,1},
+            {1,1,1,1,1,1,1,1,1,1}
+    };
+
+    private int[] findEmptySpawnPosition() {
+        List<int[]> emptyTiles = new ArrayList<>();
+        for (int y = 0; y < mapLayout.length; y++) {
+            for (int x = 0; x < mapLayout[y].length; x++) {
+                if (mapLayout[y][x] == 0) {
+                    emptyTiles.add(new int[]{x, y});
+                }
+            }
+        }
+        if (!emptyTiles.isEmpty()) {
+            return emptyTiles.get(new Random().nextInt(emptyTiles.size()));
+        } else {
+            return new int[]{1, 1}; // Fallback spawn
+        }
     }
+
 
 
     private void removePlayerById(String playerId) {
