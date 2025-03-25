@@ -129,7 +129,40 @@ public class GameSocketHandler extends TextWebSocketHandler {
         int range = 3;
         List<String> affectedPlayers = new ArrayList<>();
         List<int[]> destroyedWalls = new ArrayList<>();
+        List<String> explosionTiles = new ArrayList<>();
 
+        // Always include the center tile
+        explosionTiles.add("{ \"x\": " + x + ", \"y\": " + y + " }");
+
+        for (int i = 1; i <= range; i++) {
+            // Right
+            if (isWall(x + i, y) == 1) break;
+            if (isWall(x + i, y) == 2) { destroyedWalls.add(new int[]{x + i, y}); break; }
+            explosionTiles.add("{ \"x\": " + (x + i) + ", \"y\": " + y + " }");
+        }
+
+        for (int i = 1; i <= range; i++) {
+            // Left
+            if (isWall(x - i, y) == 1) break;
+            if (isWall(x - i, y) == 2) { destroyedWalls.add(new int[]{x - i, y}); break; }
+            explosionTiles.add("{ \"x\": " + (x - i) + ", \"y\": " + y + " }");
+        }
+
+        for (int i = 1; i <= range; i++) {
+            // Down
+            if (isWall(x, y + i) == 1) break;
+            if (isWall(x, y + i) == 2) { destroyedWalls.add(new int[]{x, y + i}); break; }
+            explosionTiles.add("{ \"x\": " + x + ", \"y\": " + (y + i) + " }");
+        }
+
+        for (int i = 1; i <= range; i++) {
+            // Up
+            if (isWall(x, y - i) == 1) break;
+            if (isWall(x, y - i) == 2) { destroyedWalls.add(new int[]{x, y - i}); break; }
+            explosionTiles.add("{ \"x\": " + x + ", \"y\": " + (y - i) + " }");
+        }
+
+        // Detect hit players
         for (WebSocketSession session : players.keySet()) {
             Player player = players.get(session);
             if (player == null) continue;
@@ -140,32 +173,30 @@ public class GameSocketHandler extends TextWebSocketHandler {
             }
         }
 
+        // Build JSON
+        StringBuilder json = new StringBuilder();
+        json.append("{ \"event\": \"EXPLOSION\", ");
+        json.append("\"tiles\": [").append(String.join(", ", explosionTiles)).append("], ");
 
-        String explosionMessage = "{ \"event\": \"EXPLOSION\", \"tiles\": [";
-
-        for (int i = 1; i <= range; i++) {
-            if (isWall(x + i, y) == 1) break; // Stop at solid wall
-            if (isWall(x + i, y) == 2) { destroyedWalls.add(new int[]{x + i, y}); break; }
-            explosionMessage += "{ \"x\": " + (x + i) + ", \"y\": " + y + " }, ";
-
-            if (isWall(x - i, y) == 1) break;
-            if (isWall(x - i, y) == 2) { destroyedWalls.add(new int[]{x - i, y}); break; }
-            explosionMessage += "{ \"x\": " + (x - i) + ", \"y\": " + y + " }, ";
-
-            if (isWall(x, y + i) == 1) break;
-            if (isWall(x, y + i) == 2) { destroyedWalls.add(new int[]{x, y + i}); break; }
-            explosionMessage += "{ \"x\": " + x + ", \"y\": " + (y + i) + " }, ";
-
-            if (isWall(x, y - i) == 1) break;
-            if (isWall(x, y - i) == 2) { destroyedWalls.add(new int[]{x, y - i}); break; }
-            explosionMessage += "{ \"x\": " + x + ", \"y\": " + (y - i) + " }, ";
+        json.append("\"destroyedWalls\": [");
+        for (int[] wall : destroyedWalls) {
+            json.append("{ \"x\": ").append(wall[0]).append(", \"y\": ").append(wall[1]).append(" }, ");
         }
+        if (!destroyedWalls.isEmpty()) {
+            json.setLength(json.length() - 2); // remove last comma
+        }
+        json.append("], ");
 
-        explosionMessage = explosionMessage.substring(0, explosionMessage.length() - 2);
-        explosionMessage += "], \"playersHit\": " + affectedPlayers + ", \"destroyedWalls\": " + destroyedWalls + " }";
+        json.append("\"playersHit\": [").append(String.join(", ", affectedPlayers)).append("] }");
 
-        broadcastRaw(explosionMessage);
+        broadcastRaw(json.toString());
+
+        // Remove affected players
+        for (String playerId : affectedPlayers) {
+            removePlayerById(playerId.replace("\"", ""));
+        }
     }
+
 
     // Function to check if a wall exists at given coordinates
     private int[][] mapLayout = {
