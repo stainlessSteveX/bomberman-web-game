@@ -86,17 +86,22 @@ document.addEventListener("keydown", (event) => {
 
 
 function updatePlayerPosition(playerId, x, y) {
-    if (!players[playerId]) {
-        players[playerId] = { x, y };
+    // Clear old position
+    if (players[playerId]) {
+        const oldCell = players[playerId];
+        oldCell.classList.remove("player");
+        oldCell.textContent = ""; // ✅ Clear the icon
     }
 
-    const oldX = players[playerId].x;
-    const oldY = players[playerId].y;
-    players[playerId].x = x;
-    players[playerId].y = y;
-
-    animatePlayerMovement(playerId, oldX, oldY, x, y);
+    // Find new cell
+    const newCell = document.querySelector(`[data-x="${x}"][data-y="${y}"]`);
+    if (newCell) {
+        newCell.classList.add("player");
+        newCell.textContent = "👾"; // Or whatever icon you’re using
+        players[playerId] = newCell; // ✅ Update the stored position
+    }
 }
+
 
 function animatePlayerMovement(playerId, oldX, oldY, newX, newY) {
     let startTime = performance.now();
@@ -137,14 +142,18 @@ function removePlayer(playerId) {
 }
 
 
-// Send player action
+let moveCounter = 0;
+
 function sendPlayerAction(action) {
     if (socket.readyState === WebSocket.OPEN) {
         socket.send(action);
+        moveCounter++;
+        console.log(`➡️ Sent: ${action} [#${moveCounter}]`);
     } else {
-        console.log("⚠️ WebSocket is not open yet.");
+        console.warn("⚠️ WebSocket is not open.");
     }
 }
+
 
 socket.addEventListener("message", (event) => {
     let data = JSON.parse(event.data);
