@@ -2,6 +2,9 @@ const socket = new WebSocket("ws://localhost:8080/ws");
 
 const gameBoard = document.getElementById("gameBoard");
 
+const bombs = {};
+
+
 // Wall Layout (1 = solid wall 🚧, 2 = breakable wall 🧱)
 const mapLayout = [
     [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
@@ -121,17 +124,33 @@ function updatePlayerPosition(playerId, x, y) {
     if (players[playerId]) {
         const oldCell = players[playerId];
         oldCell.classList.remove("player");
-        oldCell.textContent = ""; // ✅ Clear the icon
+
+        const key = `${oldCell.dataset.x},${oldCell.dataset.y}`;
+
+        if (!bombs[key]) {
+            oldCell.textContent = "";
+        } else {
+            oldCell.textContent = "💣";
+        }
     }
 
-    // Find new cell
+    // Move player to new cell
     const newCell = document.querySelector(`[data-x="${x}"][data-y="${y}"]`);
     if (newCell) {
         newCell.classList.add("player");
-        newCell.textContent = "👾"; // Or whatever icon you’re using
-        players[playerId] = newCell; // ✅ Update the stored position
+
+        const key = `${x},${y}`;
+        if (bombs[key]) {
+            newCell.textContent = "💣"; // 👾 standing on 💣 — prioritize bomb
+        } else {
+            newCell.textContent = "👾";
+        }
+
+        players[playerId] = newCell;
     }
 }
+
+
 
 
 function animatePlayerMovement(playerId, oldX, oldY, newX, newY) {
@@ -198,11 +217,28 @@ socket.addEventListener("message", (event) => {
 });
 
 function placeBomb(x, y) {
-    let cell = document.querySelector(`[data-x="${x}"][data-y="${y}"]`);
+    const key = `${x},${y}`;
+    bombs[key] = true; // Mark this tile as containing a bomb
+
+    const cell = document.querySelector(`[data-x="${x}"][data-y="${y}"]`);
     if (cell) {
         cell.textContent = "💣";
     }
+
+    // Remove bomb after ~3 seconds (explosion will happen then)
+    setTimeout(() => {
+        if (bombs[key]) {
+            delete bombs[key];
+
+            // Only clear the bomb if explosion hasn't already overwritten it
+            const c = document.querySelector(`[data-x="${x}"][data-y="${y}"]`);
+            if (c && c.textContent === "💣") {
+                c.textContent = "";
+            }
+        }
+    }, 3000);
 }
+
 
 function triggerExplosion(tiles) {
     tiles.forEach(tile => {
